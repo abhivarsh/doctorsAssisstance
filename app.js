@@ -3,8 +3,6 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
-var profileRouter = require('./routes/api/profile');
-var usersRouter = require('./routes/api/users');
 const connectDB = require('./config/db');
 
 const app = express();
@@ -23,7 +21,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => res.send('API Runnning'));
 
-app.use('/api/users', usersRouter);
+app.use('/api/auth', require('./routes/api/auth'));
+app.use('/api/users', require('./routes/api/users'));
+app.use('/api/profile', require('./routes/api/profile'));
 
 const PORT = process.env.PORT || 5000;
 
