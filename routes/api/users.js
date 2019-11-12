@@ -21,7 +21,10 @@ router.post(
     check(
       'password',
       'Please enter a password with 6 or more characters'
-    ).isLength({ min: 6 })
+    ).isLength({ min: 6 }),
+    check('role', 'Role is required')
+      .not()
+      .isEmpty()
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -29,7 +32,7 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, name } = req.body;
+    const { email, password, name, role } = req.body;
     try {
       //see is the user already exists
       let user = await User.findOne({ email });
@@ -50,7 +53,8 @@ router.post(
         name,
         email,
         password,
-        avatar
+        avatar,
+        role
       });
 
       //Encrypt the password
