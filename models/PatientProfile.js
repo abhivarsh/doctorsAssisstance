@@ -51,4 +51,7 @@ const PatientProfileSchema = new mongoose.Schema({
   }
 });
 
-module.exports = Profile = mongoose.model('profile', PatientProfileSchema);
+module.exports = PatientProfile = mongoose.model(
+  'patientProfile',
+  PatientProfileSchema
+);

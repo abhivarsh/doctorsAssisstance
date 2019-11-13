@@ -23,8 +23,8 @@ app.get('/', (req, res) => res.send('API Runnning'));
 
 app.use('/api/auth', require('./routes/api/auth'));
 app.use('/api/users', require('./routes/api/users'));
-app.use('/api/profile', require('./routes/api/profile'));
-
+app.use('/api/profile/doctors', require('./routes/api/doctorProfile'));
+app.use('/api/profile/patients', require('./routes/api/patientProfile'));
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));

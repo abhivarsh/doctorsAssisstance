@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const PatientProfileSchema = new mongoose.Schema({
+const DoctorProfileSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'user'
@@ -8,22 +8,35 @@ const PatientProfileSchema = new mongoose.Schema({
   gender: {
     type: String
   },
+  category: {
+    type: String,
+    require: true
+  },
   hospitalAddress: {
     street: {
-      type: String
+      type: String,
+      require: true
     },
     city: {
-      type: String
+      type: String,
+      require: true
+    },
+    state: {
+      type: String,
+      require: true
     },
     pin: {
-      type: String
+      type: Number,
+      require: true
     },
     country: {
-      type: String
+      type: String,
+      require: true
     }
   },
   phone: {
-    type: String
+    type: String,
+    require: true
   },
   message: {
     type: String
@@ -41,11 +54,11 @@ const PatientProfileSchema = new mongoose.Schema({
       location: {
         type: String
       },
-      from: {
+      fromDate: {
         type: Date,
         required: true
       },
-      to: {
+      toDate: {
         type: Date
       },
       current: {
@@ -71,11 +84,11 @@ const PatientProfileSchema = new mongoose.Schema({
         type: String,
         required: true
       },
-      from: {
+      fromDate: {
         type: Date,
         required: true
       },
-      to: {
+      toDate: {
         type: Date
       },
       current: {
@@ -90,7 +103,7 @@ const PatientProfileSchema = new mongoose.Schema({
   comments: [
     {
       user: {
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'user'
       },
       text: {
@@ -119,4 +132,7 @@ const PatientProfileSchema = new mongoose.Schema({
   }
 });
 
-module.exports = Profile = mongoose.model('profile', PatientProfileSchema);
+module.exports = DoctorProfile = mongoose.model(
+  'doctorProfile',
+  DoctorProfileSchema
+);

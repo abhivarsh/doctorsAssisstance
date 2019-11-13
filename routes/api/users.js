@@ -24,7 +24,11 @@ router.post(
     ).isLength({ min: 6 }),
     check('role', 'Role is required')
       .not()
-      .isEmpty()
+      .isEmpty(),
+    check('role', 'Role should either be User or Doctor').isIn([
+      'patient',
+      'doctor'
+    ])
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -87,5 +91,49 @@ router.post(
     }
   }
 );
+
+//@Route api/users
+//@Desc Get all users
+//@Access Public
+router.get('/', async (req, res) => {
+  try {
+    const users = await User.find();
+
+    if (!users) {
+      return res
+        .status(404)
+        .json({ msg: 'No users exists for the application' });
+    }
+    res.json(users);
+  } catch (err) {
+    if (err.kind === 'ObjectId') {
+      res.status(404).json({ msg: 'No users exists for the application' });
+    }
+    res.status(500).send('Server Error');
+  }
+});
+
+//@Route api/users/:role
+//@Desc Get all users for a given role
+//@Access Public
+router.get('/:role', async (req, res) => {
+  const roles = ['doctor', 'patient'];
+  if (!roles.includes(req.params.role)) {
+    return res.status(400).json({ msg: 'Role mentioned is not correct' });
+  }
+  try {
+    const users = await User.find({ role: req.params.role });
+
+    if (!users) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    res.json(users);
+  } catch (err) {
+    if (err.kind === 'ObjectId') {
+      res.status(404).json({ msg: 'User not found' });
+    }
+    res.status(500).send('Server Error');
+  }
+});
 
 module.exports = router;
