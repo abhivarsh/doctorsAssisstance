@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
 //@Access Public
 router.get('/:doc_id', async (req, res) => {
   try {
-    const doctor = await Doctor.find({ user: req.params.doc_id }).populate(
+    const doctor = await Doctor.findOne({ user: req.params.doc_id }).populate(
       'user',
       ['name', 'avatar']
     );

@@ -14,13 +14,16 @@ const MedicalHistorySchema = new mongoose.Schema({
     ref: 'user'
   },
   symptoms: {
-    type: [String]
+    type: [String],
+    require: true
   },
   treatment: {
-    type: String
+    type: String,
+    require: true
   },
   date: {
-    type: Date
+    type: Date,
+    default: Date.now
   }
 });
 

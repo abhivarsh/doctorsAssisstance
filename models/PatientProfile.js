@@ -24,6 +24,9 @@ const PatientProfileSchema = new mongoose.Schema({
     city: {
       type: String
     },
+    state: {
+      type: String
+    },
     pin: {
       type: String
     },
