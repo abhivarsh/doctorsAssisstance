@@ -7,14 +7,15 @@ const AppointmentSchema = new mongoose.Schema({
   },
   notification: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'notifications'
+    ref: 'notifications',
+    require: true
   },
   appointmentDate: {
     type: Date,
     require: true
   },
   feedback: {
-    type: [mongoose.Schema.Types.ObjectId],
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'medicalHistory'
   }
 });

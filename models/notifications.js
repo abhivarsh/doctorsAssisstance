@@ -13,10 +13,6 @@ const notificationsSchema = new mongoose.Schema({
     type: String,
     require: true
   },
-  category: {
-    type: String,
-    require: true
-  },
   symptoms: {
     type: [String],
     require: true

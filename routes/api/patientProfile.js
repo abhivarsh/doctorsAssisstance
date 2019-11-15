@@ -7,15 +7,21 @@ const config = require('config');
 const gravator = require('gravatar');
 const { check, validationResult } = require('express-validator');
 
-//Get doctor profile module
+//Get patient profile module
 const Patient = require('../../models/PatientProfile');
+
+//Get doctor profile module
+const Doctor = require('../../models/DoctorProfile');
 
 //Get Medical History model
 const MedicalHistory = require('../../models/MedicalHistory');
 
-//@Route api/profile/patients/medicalHistory
-//@Desc Get all medical History of Patients
-//@Access Private
+//Get Notification model
+const Notification = require('../../models/Notifications');
+
+//@Route    GET api/profile/patients/medicalHistory
+//@Desc     Get all medical History of Patients
+//@Access   Private
 router.get('/medicalHistory', auth, async (req, res) => {
   try {
     const medicalHistorys = await MedicalHistory.find({
@@ -31,9 +37,9 @@ router.get('/medicalHistory', auth, async (req, res) => {
   }
 });
 
-//@Route api/profile/patients
-//@Desc Get all patients profile
-//@Access Public
+//@Route    GET api/profile/patients
+//@Desc     Get all patients profile
+//@Access   Public
 router.get('/', async (req, res) => {
   try {
     const patients = await Patient.find();
@@ -51,9 +57,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-//@Route api/profile/patients/:patient_id
-//@Desc Get a single patient profile
-//@Access Public
+//@Route    GET api/profile/patients/:patient_id
+//@Desc     Get a single patient profile
+//@Access   Public
 router.get('/:patient_id', async (req, res) => {
   try {
     const patient = await Patient.findOne({
@@ -71,9 +77,9 @@ router.get('/:patient_id', async (req, res) => {
   }
 });
 
-//@Route api/profile/patients
-//@Desc Add or Update patients profile
-//@Access private
+//@Route    POST api/profile/patients
+//@Desc     Add or Update patients profile
+//@Access   private
 router.post('/', auth, async (req, res) => {
   const {
     age,
@@ -131,14 +137,21 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-//@Route api/profile/patients/medicalHistory/:medical_id
-//@Desc Get a single medical History of a Patient
-//@Access Private
+//@Route    GET api/profile/patients/medicalHistory/:medical_id
+//@Desc     Get a single medical History of a Patient
+//@Access   Private
 router.get('/medicalHistory/:medical_id', auth, async (req, res) => {
   try {
     const medicalHistory = await MedicalHistory.findById(
       req.params.medical_id
     ).populate('patientId', ['name', 'avatar']);
+    if (
+      req.user.role !== 'doctor' &&
+      (req.user.role === 'patient' &&
+        req.user.id !== medicalHistory.patientId.toString())
+    ) {
+      return res.status(401).json('User not authorized!!');
+    }
     res.json(medicalHistory);
   } catch (err) {
     console.error(err.message);
@@ -146,9 +159,9 @@ router.get('/medicalHistory/:medical_id', auth, async (req, res) => {
   }
 });
 
-//@Route api/profile/patients/medicalHistory
-//@Desc Add a medical History to a Patient profile
-//@Access Private
+//@Route   POST api/profile/patients/medicalHistory
+//@Desc    Add a medical History to a Patient profile
+//@Access  Private
 router.post(
   '/medicalHistory',
   [
@@ -204,9 +217,9 @@ router.post(
   }
 );
 
-//@Route api/profile/patients/medicalHistory/:medical_id
-//@Desc Delete a medical History from a Patient profile
-//@Access Private
+//@Route   DELETE api/profile/patients/medicalHistory/:medical_id
+//@Desc    Delete a medical History from a Patient profile
+//@Access  Private
 router.delete('/medicalHistory/:medical_id', auth, async (req, res) => {
   try {
     const medicalHistory = await MedicalHistory.findById(req.params.medical_id);
@@ -236,9 +249,9 @@ router.delete('/medicalHistory/:medical_id', auth, async (req, res) => {
   }
 });
 
-//@Route api/profile/patients/medicalHistory/:medical_id
-//@Desc Update a medical History of a Patient Profile
-//@Access Private
+//@Route   PUT api/profile/patients/medicalHistory/:medical_id
+//@Desc    Update a medical History of a Patient Profile
+//@Access  Private
 router.put('/medicalHistory/:medical_id', auth, async (req, res) => {
   try {
     let medicalHistory = await MedicalHistory.findById(req.params.medical_id);
@@ -277,6 +290,166 @@ router.put('/medicalHistory/:medical_id', auth, async (req, res) => {
     console.error(err.message);
     if (err.kind == 'ObjectId') {
       return res.status(400).json({ msg: 'Doctor not found' });
+    }
+    res.status(500).send('Server Error');
+  }
+});
+
+//@Route   POST api/profile/patients/appointment/request
+//@Desc    Send out a notification to a doctor requesting an appointment
+//@Access  Private
+router.post(
+  '/appointment/request',
+  [
+    auth,
+    [
+      check('priority', 'Priority must be mentioned')
+        .not()
+        .isEmpty(),
+      check('priority', 'Please check Priority').isIn([
+        'Emergency',
+        'Priority',
+        'Routine'
+      ]),
+      check('title', 'Title must be mentioned')
+        .not()
+        .isEmpty(),
+      check('symptoms', 'Symptoms must be mentioned')
+        .not()
+        .isEmpty(),
+      check('fullDescription', 'Full Description must be mentioned')
+        .not()
+        .isEmpty(),
+      check('doctorId', 'DoctorId must be mentioned')
+        .not()
+        .isEmpty()
+    ]
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const {
+      appointmentScheduled,
+      priority,
+      title,
+      symptoms,
+      fullDescription,
+      doctorId
+    } = req.body;
+
+    //build notificationFields
+    const notificationFields = {};
+    notificationFields.patientId = req.user.id;
+    if (appointmentScheduled)
+      notificationFields.appointmentScheduled = appointmentScheduled;
+    if (priority) notificationFields.priority = priority;
+    if (title) notificationFields.title = title;
+    if (fullDescription) notificationFields.fullDescription = fullDescription;
+    if (doctorId) notificationFields.doctorId = doctorId;
+
+    //transform symptoms string into an array
+    if (symptoms) {
+      notificationFields.symptoms = symptoms
+        .split(',')
+        .map(symptoms => symptoms.trim());
+    }
+    try {
+      const notification = new Notification(notificationFields);
+      notificationObject = await notification.save();
+
+      //add this object to patientProfile notification
+      const patientProfile = await Patient.findOne({ user: req.user.id });
+      patientProfile.notifications.push(notificationObject.id);
+      await patientProfile.save();
+
+      //add this object to doctorsProfile notification
+      const doctorsProfile = await Doctor.findOne({
+        user: notificationObject.doctorId
+      });
+
+      doctorsProfile.notifications.push(notificationObject.id);
+      await doctorsProfile.save();
+
+      res.json(notificationObject);
+    } catch (err) {
+      console.error(err.message);
+      if (err.kind == 'ObjectId') {
+        return res.status(400).json({ msg: 'Object not found' });
+      }
+      res.status(500).send('Server Error');
+    }
+  }
+);
+
+//@Route   DELETE api/profile/patients/appointment/request/:notification_id
+//@Desc    Delete a notification sent to a doctor requesting an appointment
+//@Access  Private
+router.delete(
+  '/appointment/request/:notification_id',
+  auth,
+  async (req, res) => {
+    try {
+      const notification = await Notification.findById(
+        req.params.notification_id
+      );
+      if (!notification) {
+        return res.status(400).json({ msg: 'Notification not found' });
+      }
+      await Notification.findOneAndRemove({ _id: req.params.notification_id });
+      //Remove the Notification from patientProfile notification
+      const patientProfile = await Patient.findOne({ user: req.user.id });
+
+      //remove index
+      let removeIndex = patientProfile.notifications.indexOf(
+        req.params.notification_id
+      );
+      patientProfile.notifications.splice(removeIndex, 1);
+
+      //save profile after removing the notification
+      await patientProfile.save();
+
+      //Remove the Notification from doctorsProfile notification
+      const doctorsProfile = await Doctor.findById(notification.doctorId);
+      //remove index
+      removeIndex = doctorsProfile.notifications.indexOf(
+        req.params.notification_id
+      );
+      doctorsProfile.notifications.splice(removeIndex, 1);
+
+      //save profile after removing the notification
+      await doctorsProfile.save();
+
+      res.json({ notificationId: req.params.notification_id });
+    } catch (err) {
+      console.error(err.message);
+      if (err.kind == 'ObjectId') {
+        return res.status(400).json({ msg: 'Notification not found' });
+      }
+      res.status(500).send('Server Error');
+    }
+  }
+);
+
+//@Route   GET api/profile/patients/appointment/request/:notification_id
+//@Desc    Get a notification sent to a doctor requesting an appointment
+//@Access  Private
+router.get('/appointment/request/:notification_id', auth, async (req, res) => {
+  try {
+    const notification = await Notification.findById(
+      req.params.notification_id
+    );
+    if (!notification) {
+      return res.status(400).json({ msg: 'Notification not found' });
+    }
+
+    res.json(notification);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'Notification not found' });
     }
     res.status(500).send('Server Error');
   }

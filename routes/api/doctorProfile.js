@@ -10,6 +10,15 @@ const { check, validationResult } = require('express-validator');
 //Get doctor profile module
 const Doctor = require('../../models/DoctorProfile');
 
+//Get patient profile module
+const Patient = require('../../models/PatientProfile');
+
+//Get Notification model
+const Notification = require('../../models/Notifications');
+
+//Get Appointment Scheduled Model
+const AppointmentScheduled = require('../../models/AppointmentsScheduled');
+
 //@Route api/profile/doctors
 //@Desc Get all doctors profile
 //@Access Public
@@ -600,7 +609,93 @@ router.put('/experience/:experience_id', auth, async (req, res) => {
     if (err.kind == 'ObjectId') {
       return res.status(400).json({ msg: 'Doctor not found' });
     }
-    res.status(500).send('Server Error');
+    res.status(500).send('Server Error!!');
   }
 });
+
+//@Route   POST api/profile/doctors/appointment/:notification_id
+//@Desc    Create an appointment with a patient
+//@Access  Private
+router.post(
+  '/appointment/:notification_id',
+  [
+    auth,
+    [
+      check('appointmentDate', 'Appointment Date is mandatory')
+        .not()
+        .isEmpty()
+    ]
+  ],
+  async (req, res) => {
+    try {
+      if (req.user.role === 'patient') {
+        return res.status(401).json({ msg: 'User not authorized!!' });
+      }
+
+      const errors = validationResult(req);
+      if (!errors) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const notification = await Notification.findById(
+        req.params.notification_id
+      );
+
+      if (!notification) {
+        return res.status(400).json({ msg: 'Notification  not found' });
+      }
+
+      //Update notification as scheduled
+      notification.appointmentScheduled = true;
+      notification.date = new Date();
+      const notificationObject = await notification.save();
+
+      const { appointmentDate } = req.body;
+
+      //build appointmentFields
+      const appointmentFields = {};
+      appointmentFields.scheduled = true;
+      appointmentFields.notification = notification.id;
+      if (appointmentDate) appointmentFields.appointmentDate = appointmentDate;
+
+      const appointmentScheduled = new AppointmentScheduled(appointmentFields);
+      const appointmentScheduledObject = await appointmentScheduled.save();
+
+      //add appointment to patientProfile appointmentScheduled
+      console.log(notificationObject);
+
+      const patientProfile = await Patient.findOne({
+        user: notificationObject.patientId
+      });
+      patientProfile.appointmentScheduled.push(appointmentScheduledObject.id);
+
+      //Remove notification from patient profile
+      let removeIndex = patientProfile.notifications
+        .map(notification => notification.id)
+        .indexOf(req.params.notification_id);
+      patientProfile.notifications.splice(removeIndex, 1);
+
+      await patientProfile.save();
+
+      //add appointment to doctorsProfile appointmentScheduled
+      let doctorsProfile = await Doctor.findOne({ user: req.user.id });
+      doctorsProfile.appointmentScheduled.push(appointmentScheduledObject.id);
+
+      //Remove notification from patient profile
+      removeIndex = doctorsProfile.notifications
+        .map(notification => notification.id)
+        .indexOf(req.params.notification_id);
+      doctorsProfile.notifications.splice(removeIndex, 1);
+
+      await doctorsProfile.save();
+
+      res.json(appointmentScheduled);
+    } catch (err) {
+      console.error(err.message);
+      if (err.kind == 'ObjectId') {
+        return res.status(400).json({ msg: 'User not found' });
+      }
+      return res.status(500).json('Server Error!!');
+    }
+  }
+);
 module.exports = router;

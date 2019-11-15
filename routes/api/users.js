@@ -1,12 +1,23 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../../middleware/auth');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const config = require('config');
 const gravator = require('gravatar');
 const { check, validationResult } = require('express-validator');
+
 //Get user module
 const User = require('../../models/User');
+
+//Get doctor profile module
+const Doctor = require('../../models/DoctorProfile');
+
+//Get patient profile module
+const Patient = require('../../models/PatientProfile');
+
+//Get Appointment Scheduled Model
+const AppointmentScheduled = require('../../models/AppointmentsScheduled');
 
 //@route POST api/users
 //@desc Register a user to the application
@@ -133,6 +144,67 @@ router.get('/:role', async (req, res) => {
       res.status(404).json({ msg: 'User not found' });
     }
     res.status(500).send('Server Error');
+  }
+});
+
+//@Route   DELETE api/users/appointment/:appointment_id
+//@Desc    Delete an appointment
+//@Access  Private
+router.delete('/appointment/:appointment_id', auth, async (req, res) => {
+  try {
+    const appointment = await AppointmentScheduled.findById(
+      req.params.appointment_id
+    ).populate('notification', ['patientId', 'doctorId']);
+
+    if (!appointment) {
+      return res.status(400).json({ msg: 'Appointment not found' });
+    }
+
+    if (
+      req.user.id !== appointment.notification.patientId.toString() &&
+      req.user.id !== appointment.notification.doctorId.toString()
+    ) {
+      return res.status(401).json({ msg: 'User not authorized!!' });
+    }
+
+    const patient = await Patient.findOne({
+      user: appointment.notification.patientId
+    });
+
+    if (!patient) {
+      return res.status(400).json('Patient not found');
+    }
+
+    //remove Index
+    let removeIndex = patient.appointmentScheduled.indexOf(
+      req.user.appointment_id
+    );
+    patient.appointmentScheduled.splice(removeIndex, 1);
+    await patient.save();
+
+    const doctor = await Doctor.findOne({
+      user: appointment.notification.doctorId
+    });
+
+    if (!doctor) {
+      return res.status(400).json('Doctor not found');
+    }
+    //remove Index
+    removeIndex = doctor.appointmentScheduled.indexOf(req.user.appointment_id);
+    doctor.appointmentScheduled.splice(removeIndex, 1);
+    await doctor.save();
+
+    const apt = await AppointmentScheduled.findOneAndRemove({
+      _id: req.params.appointment_id
+    });
+
+    res.json(apt);
+  } catch (err) {
+    console.error(err);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'User not found' });
+    }
+    return res.status(500).json('Server Error!!');
   }
 });
 
