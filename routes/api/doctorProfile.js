@@ -83,7 +83,8 @@ router.post(
       check('phone', 'Phone number is must')
         .not()
         .isEmpty(),
-      check('pin', 'Pin must be 5 characters long').isLength(5)
+      check('pin', 'Pin must be 5 characters long').isLength(5),
+      check('phone', 'Phone number must be 10 digits long').isLength(10)
     ]
   ],
   async (req, res) => {
@@ -698,4 +699,46 @@ router.post(
     }
   }
 );
+
+//@Route   POST api/profile/doctors/feedback/:patient_id
+//@Desc    Add Feedback to a paatient
+//@Access  Private
+router.post('/feedback/:patient_id', auth, async (req, res) => {
+  try {
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'User not found' });
+    }
+    return res.status(500).json('Server Error!!');
+  }
+});
+
+//@Route   PUT api/profile/doctors/feedback/:feedback_id
+//@Desc    Update Feedback to a paatient
+//@Access  Private
+router.put('/feedback/:feedback_id', auth, async (req, res) => {
+  try {
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'User not found' });
+    }
+    return res.status(500).json('Server Error!!');
+  }
+});
+
+//@Route   DELETE api/profile/doctors/feedback/:feedback_id
+//@Desc    Delete Feedback to a paatient
+//@Access  Private
+router.post('/feedback/:patient_id', auth, async (req, res) => {
+  try {
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'User not found' });
+    }
+    return res.status(500).json('Server Error!!');
+  }
+});
 module.exports = router;
