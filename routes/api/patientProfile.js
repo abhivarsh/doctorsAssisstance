@@ -229,8 +229,6 @@ router.delete('/medicalHistory/:medical_id', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Medical History not found' });
     }
 
-    const patientProfile = await Patient.findOne({ user: req.user.id });
-
     //remove index
     const removeIndex = patientProfile.medicalHistory.indexOf(
       req.params.medical_id

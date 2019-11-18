@@ -19,6 +19,9 @@ const Notification = require('../../models/Notifications');
 //Get Appointment Scheduled Model
 const AppointmentScheduled = require('../../models/AppointmentsScheduled');
 
+//Get Medical History Model
+const MedicalHistory = require('../../models/MedicalHistory');
+
 //@Route api/profile/doctors
 //@Desc Get all doctors profile
 //@Access Public
@@ -700,19 +703,83 @@ router.post(
   }
 );
 
-//@Route   POST api/profile/doctors/feedback/:patient_id
+//@Route   POST api/profile/doctors/feedback/:appointment_id
 //@Desc    Add Feedback to a paatient
 //@Access  Private
-router.post('/feedback/:patient_id', auth, async (req, res) => {
-  try {
-  } catch (err) {
-    console.error(err.message);
-    if (err.kind == 'ObjectId') {
-      return res.status(400).json({ msg: 'User not found' });
+router.post(
+  '/feedback/:appointment_id',
+  [
+    auth,
+    [
+      check('patientId', 'Patient Id is Required')
+        .not()
+        .isEmpty(),
+      check('disease', 'Disease must be mentioned')
+        .not()
+        .isEmpty(),
+      check('symptoms', 'Symptoms must be mentioned')
+        .not()
+        .isEmpty(),
+      check('treatment', 'Treatment must be mentioned')
+        .not()
+        .isEmpty()
+    ]
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { symptoms, disease, treatment, patientId, date } = req.body;
+
+      const patientProfile = await Patient.findOne({ user: patientId });
+      if (!patientProfile) {
+        return res.status(400).json({ msg: 'Patient not found' });
+      }
+
+      const appointmentScheduled = await AppointmentScheduled.findById(
+        req.params.appointment_id
+      );
+      if (!appointmentScheduled) {
+        return res.status(400).json({ msg: 'Appointment not found' });
+      }
+
+      //build medical history fileds
+      const medicalHistoryFields = {};
+      medicalHistoryFields.consultedBy = req.user.id;
+      if (disease) medicalHistoryFields.disease = disease;
+      if (treatment) medicalHistoryFields.treatment = treatment;
+      if (patientId) medicalHistoryFields.patientId = patientId;
+      if (date) medicalHistoryFields.date = date;
+
+      //transform symptoms string into an array
+      if (symptoms) {
+        medicalHistoryFields.symptoms = symptoms
+          .split(',')
+          .map(symptoms => symptoms.trim());
+      }
+
+      const medicalHistory = new MedicalHistory(medicalHistoryFields);
+      const medicalHistoryObject = await medicalHistory.save();
+
+      //Add the object ID to Appointments Feedback and patients Profile
+      patientProfile.medicalHistory.push(medicalHistoryObject.id);
+      await patientProfile.save();
+
+      appointmentScheduled.feedback.push(medicalHistoryObject.id);
+      await appointmentScheduled.save();
+    } catch (err) {
+      console.error(err.message);
+      if (err.kind == 'ObjectId') {
+        return res.status(400).json({ msg: 'User not found' });
+      }
+      return res.status(500).json('Server Error!!');
     }
-    return res.status(500).json('Server Error!!');
   }
-});
+);
 
 //@Route   PUT api/profile/doctors/feedback/:feedback_id
 //@Desc    Update Feedback to a paatient
@@ -731,7 +798,7 @@ router.put('/feedback/:feedback_id', auth, async (req, res) => {
 //@Route   DELETE api/profile/doctors/feedback/:feedback_id
 //@Desc    Delete Feedback to a paatient
 //@Access  Private
-router.post('/feedback/:patient_id', auth, async (req, res) => {
+router.post('/feedback/:feedback_id', auth, async (req, res) => {
   try {
   } catch (err) {
     console.error(err.message);
